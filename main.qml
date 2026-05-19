@@ -1,35 +1,41 @@
-import QtQuick 2.10
-import QtQuick.Controls 2.3
-import QtQuick.Layouts 1.3
-import QtQuick.Window 2.10
-import Process 1.0
+import QtQuick.Controls.Material
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtQuick.Window
+import Process
 
 Window {
-	id: window
-	width: 300
-	height: 340
+	width: 340
+	height: 700
 	visible: true
 	title: 'Adb remote'
 
-	TextField {
-		id: txtSend
-		width: parent.width
-		placeholderText: "send text or key"
-		onAccepted: process.start(["shell", "input", "text", '"' + txtSend.text + '"']);
-	}
+	property int dividerHeigth: customAction.height / 3
 
 	DropArea {
 		enabled: true
 		anchors.fill: parent
-		onDropped: if (drop.urls && drop.urls.length > 0) {
-			for (let url of drop.urls) {
-				if (url.endsWith('.apk')) {
-					process.start(["install", url.replace(/^file:\/\//, '')]);
-				} else {
-					process.start(["push", url.replace(/^file:\/\//, ''), "/sdcard/Download/"]);
+		onDropped: (args) => {
+			if (args.urls && args.urls.length > 0) {
+				for (let url of args.urls) {
+					let file = url.toString();
+					if (file.endsWith('.apk')) {
+						adb.start(["install", file.replace(/^file:\/\//, '')]);
+					} else {
+						adb.start(["push", file.replace(/^file:\/\//, ''), "/sdcard/Download/"]);
+					}
 				}
 			}
 		}
+	}
+
+	TextField {
+		id: txtSend
+		width: parent.width
+		padding: 5
+		placeholderText: "send text or key"
+		onAccepted: customAction.exec();
 	}
 
 	GridLayout {
@@ -40,64 +46,201 @@ Window {
 		rowSpacing: 0
 		columns: 3
 		columnSpacing: 0
+		uniformCellWidths: true
+
 
 		ComboBox {
 			id: customAction
 			Layout.fillWidth: true
 			Layout.columnSpan: 2
 			textRole: 'text'
-			model: [
-				{text: "Connect", args: ["connect", txtSend.text]},
-				{text: "KillServer", args: ["kill-server"]},
-				{text: "SendEnter", args: ["shell", "input", "keyevent", '66']},
-				{text: "SendText", args: ["shell", "input", "text", '"' + txtSend.text + '"']},
-				{text: "SendKey", args: ["shell", "input", "keyevent", '"' + txtSend.text + '"']},
-			]
+			onCurrentIndexChanged: if (txtSend.text === '') {
+				txtSend.text = model[currentIndex].hint || ''
+			}
+			model: [{
+				text: "KillServer",
+				exec: ["kill-server"]
+			}, {
+				text: "Connect",
+				hint: "192.168.1.",
+				execInput: ["connect"]
+			}, {
+				text: "Open Settings",
+				exec: ["shell", "am", "start", '-a', 'android.settings.SETTINGS']
+			}, {
+				text: "SendText",
+				execInputEsc: ["shell", "input", "text"]
+			}, {
+				text: "SendKey",
+				execInput: ["shell", "input", "keyevent"]
+			}, {
+				text: "SendEnter", // KEYCODE_ENTER = 66;
+				exec: ["shell", "input", "keyevent", '66']
+			}]
+			
+			function exec() {
+				if (model[currentIndex].execInputEsc != null) {
+					adb.start([...model[currentIndex].execInputEsc, "\'" + txtSend.text + "\'"]);
+					return;
+				}
+				if (model[currentIndex].execInput != null) {
+					adb.start([...model[currentIndex].execInput, txtSend.text]);
+					return;
+				}
+				if (model[currentIndex].exec != null) {
+					adb.start(model[currentIndex].exec);
+					return;
+				}
+				
+			}
 		}
 		Button {
 			text: "Execute";
 			Layout.fillWidth: true
-			onClicked: process.start(customAction.model[customAction.currentIndex].args);
+			onClicked: customAction.exec();
+		}
+
+		Repeater {model: 3; delegate: Rectangle {height: dividerHeigth}}
+
+		//media controls: ▶ ⏵ ⏸ ⏯ ⏹ ⏺ ⏏ ⏪ ⏮ ⏩ ⏭
+		Button {
+			text: "⏮";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '89']);
 		}
 		Button {
-			text: "⤺";
+			text: "⏯";
 			Layout.fillWidth: true
-			onClicked: process.startDetached(["shell", "input", "keyevent", '4']);
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '85']);
 		}
 		Button {
-			text: "⬆";
+			text: "⏭";
 			Layout.fillWidth: true
-			onClicked: process.startDetached(["shell", "input", "keyevent", '19']);
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '90']);
+		}
+
+		Button {
+			text: "🔙";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '4']);
+		}
+		Button {
+			text: "⏹";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '86']);
 		}
 		Button {
 			text: "🏠";
 			Layout.fillWidth: true
-			onClicked: process.startDetached(["shell", "input", "keyevent", '3']);
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '3']);
 		}
+
+		Repeater {model: 3; delegate: Rectangle {height: dividerHeigth}}
+
+		Button {
+			text: "ch-";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "keyevent", 167]);
+		}
+		Button {
+			text: "⬆";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '19']);
+		}
+		Button {
+			text: "ch+";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "keyevent", 166]);
+		}
+
+
 		Button {
 			text: "⬅";
 			Layout.fillWidth: true
-			onClicked: process.startDetached(["shell", "input", "keyevent", '21']);
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '21']);
 		}
 		Button {
 			text: 'OK'
 			Layout.fillWidth: true
-			onClicked: process.startDetached(["shell", "input", "keyevent", '23']);
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '23']);
 		}
 		Button {
 			text: "➡";
 			Layout.fillWidth: true
-			onClicked: process.startDetached(["shell", "input", "keyevent", '22']);
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '22']);
 		}
+
 		Button {
-			text: "Settings";
+			text: "rec";
 			Layout.fillWidth: true
-			onClicked: process.start(['shell', 'am', 'start', '-a', 'android.settings.SETTINGS']);
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '130']);
 		}
 		Button {
 			text: "⬇";
 			Layout.fillWidth: true
-			onClicked: process.startDetached(["shell", "input", "keyevent", '20']);
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '20']);
+		}
+		Button {
+			text: "sub";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "keyevent", '175']);
+		}
+
+		Repeater {model: 3; delegate: Rectangle {height: dividerHeigth}}
+
+		Button {
+			text: "1";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
+		}
+		Button {
+			text: "2";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
+		}
+		Button {
+			text: "3";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
+		}
+
+		Button {
+			text: "4";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
+		}
+		Button {
+			text: "5";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
+		}
+		Button {
+			text: "6";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
+		}
+
+		Button {
+			text: "7";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
+		}
+		Button {
+			text: "8";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
+		}
+		Button {
+			text: "9";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
+		}
+
+		Rectangle {}
+		Button {
+			text: "0";
+			Layout.fillWidth: true
+			onClicked: adb.startDetached(["shell", "input", "text", text]);
 		}
 		Button {
 			text: 'Clear'
@@ -137,11 +280,17 @@ Window {
 	}
 
 	Process {
-		id: process
+		id: adb
 		program: "adb"
-		onStarting: logger.log("Starting: " + program + ' ' + args.join(' '))
+		onStarting: (program, args) => logger.log("Starting: " + program + ' ' + args.join(' '))
 		onAboutToClose: logger.log("AboutToClose: ")
-		onErrorOccurred: logger.log("onErrorOccurred: ")
+		onErrorOccurred: (error) => {
+			logger.log("onErrorOccurred: " + error)
+		}
 		onFinished: logger.log("finished: " + readAll());
+	}
+
+	Component.onCompleted: {
+		customAction.currentIndex = 2
 	}
 }
